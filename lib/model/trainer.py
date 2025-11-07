@@ -21,9 +21,22 @@ class Trainer(nn.Module):
 
         super().__init__()
 
+        self.device = torch.device(
+            "cuda" if torch.cuda.is_available()
+            else "mps" if torch.backends.mps.is_available()
+            else "cpu"
+        )
+        print(f"[INFO] Using device: {self.device}")
+
+        self.device = torch.device(
+            "cuda" if torch.cuda.is_available()
+            else "mps" if torch.backends.mps.is_available()
+            else "cpu"
+        )
+
         self.cfg = config
-        self.pos_enc = pe.cuda()
-        self.mlp = model.cuda()
+        self.pos_enc = pe.to(self.device)
+        self.mlp = model.to(self.device)
         self.log_dir = log_dir
         self.log_dict = {}
 
@@ -68,7 +81,7 @@ class Trainer(nn.Module):
         B, Nr = ray_orig.shape[:2]
 
         t = torch.linspace(0.0, 1.0, num_points, device=ray_orig.device).view(1, 1, -1) + \
-            (torch.rand(B, Nr, num_points, device=ray_orig.device)/ num_points)
+            (torch.rand(B, Nr, num_points, device=ray_orig.device) / num_points)
 
         z_vals = near * (1.0 - t) + far * t
         points = ray_orig[:, :, None, :] + ray_dir[:, :, None, :] * z_vals[..., None]
@@ -172,9 +185,9 @@ class Trainer(nn.Module):
         """
 
         # Get rays, and put them on the device
-        self.ray_orig = data['rays'][..., :3].cuda()
-        self.ray_dir = data['rays'][..., 3:].cuda()
-        self.img_gts = data['imgs'].cuda()
+        self.ray_orig = data['rays'][..., :3].to(self.device)
+        self.ray_dir = data['rays'][..., 3:].to(self.device)
+        self.img_gts = data['imgs'].to(self.device)
 
         self.optimizer.zero_grad()
             
@@ -188,6 +201,10 @@ class Trainer(nn.Module):
     def render(self, ray_orig, ray_dir):
         """Render a full image for evaluation.
         """
+        ray_orig = ray_orig.to(self.device)
+        ray_dir = ray_dir.to(self.device)
+        self.mlp.to(self.device)
+
         B, Nr = ray_orig.shape[:2]
         coords, depth, deltas = self.sample_points(ray_orig, ray_dir, near=self.cfg.near, far=self.cfg.far,
                                 num_points=self.cfg.num_pts_per_ray_render)
@@ -206,12 +223,14 @@ class Trainer(nn.Module):
         """Reconstruct the 3D shape from the volume density.
         """
 
+        self.mlp.to(self.device)
+
         # Mesh evaluation
-        window_x = torch.linspace(-1., 1., steps=RES, device='cuda')
-        window_y = torch.linspace(-1., 1., steps=RES, device='cuda')
-        window_z = torch.linspace(-1., 1., steps=RES, device='cuda')
+        window_x = torch.linspace(-1., 1., steps=RES, device=self.device)
+        window_y = torch.linspace(-1., 1., steps=RES, device=self.device)
+        window_z = torch.linspace(-1., 1., steps=RES, device=self.device)
         
-        coord = torch.stack(torch.meshgrid(window_x, window_y, window_z)).permute(1, 2, 3, 0).reshape(-1, 3).contiguous()
+        coord = torch.stack(torch.meshgrid(window_x, window_y, window_z, indexing='ij')).permute(1, 2, 3, 0).reshape(-1, 3).contiguous()
 
         _points = torch.split(coord, int(chunk_size), dim=0)
         voxels = []
@@ -249,7 +268,8 @@ class Trainer(nn.Module):
     def validate(self, loader, img_shape, step=0, epoch=0, sigma_threshold = 50., chunk_size=8192, save_img=False):
         """validation function for generating final results.
         """
-        torch.cuda.empty_cache() # To avoid CUDA out of memory
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache() # To avoid CUDA out of memory
         self.eval()
 
         log.info("Beginning validation...")
@@ -279,9 +299,9 @@ class Trainer(nn.Module):
 
             # Evaluate 2D novel view rendering
             for i, data in enumerate(tqdm(loader)):
-                rays = data['rays'].cuda()          # [1, Nr, 6]
-                img_gt = data['imgs'].cuda()        # [1, Nr, 3]
-                mask = data['masks'].repeat(1, 1, 3).cuda()
+                rays = data['rays'].to(self.device)          # [1, Nr, 6]
+                img_gt = data['imgs'].to(self.device)      # [1, Nr, 3]
+                mask = data['masks'].repeat(1, 1, 3).to(self.device)
 
                 _rays = torch.split(rays, int(chunk_size), dim=1)
                 pixels = []

@@ -23,5 +23,8 @@ def psnr(rgb, gts):
     assert (rgb.shape[-1] == 3)
     assert (gts.shape[-1] == 3)
 
+    device = rgb.device
+    gts = gts.to(device)
+
     mse = torch.mean((rgb[..., :3] - gts[..., :3]) ** 2).item()
     return 10 * np.log10(1.0 / mse)

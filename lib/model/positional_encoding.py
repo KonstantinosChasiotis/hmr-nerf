@@ -28,13 +28,16 @@ class PositionalEncoding(nn.Module):
             self.out_dim += input_dim
 
         if self.log_sampling:
-            self.bands = 2.0**torch.linspace(0.0, max_freq_log2, steps=num_freq)
+            bands = 2.0**torch.linspace(0.0, max_freq_log2, steps=num_freq)
         else:
-            self.bands = torch.linspace(1, 2.0**max_freq_log2, steps=num_freq)
+            bands = torch.linspace(1, 2.0**max_freq_log2, steps=num_freq)
 
         # The out_dim is really just input_dim + num_freq * input_dim * 2 (for sin and cos)
-        self.out_dim += self.bands.shape[0] * input_dim * 2
-        self.bands = nn.Parameter(self.bands).requires_grad_(False)
+        self.out_dim = 0
+        if include_input:
+            self.out_dim += input_dim
+        self.out_dim += bands.shape[0] * input_dim * 2 
+        self.register_buffer("bands", bands)
     
     def forward(self, coords):
         """Embded the coordinates.
@@ -46,7 +49,8 @@ class PositionalEncoding(nn.Module):
             (torch.FloatTensor): Embeddings of shape [N, input_dim + out_dim] or [N, out_dim].
         """
         N = coords.shape[0]
-        winded = (coords[:,None] * self.bands[None,:,None]).reshape(N, -1)
+        bands = self.bands.to(coords.device)
+        winded = (coords[:,None] * bands[None,:,None]).reshape(N, -1)
         encoded = torch.cat([torch.sin(winded), torch.cos(winded)], dim=-1)
         if self.include_input:
             encoded = torch.cat([coords, encoded], dim=-1)

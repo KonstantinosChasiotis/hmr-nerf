@@ -4,3 +4,5 @@ tqdm
 PyMCubes
 opencv-python
 scikit-image
+numpy
+torch

@@ -44,7 +44,7 @@ validation:
   sigma_thres: 50.0
   chunk_size: 10240
   num_pts_per_ray_render: 128
-  save_img: False
+  save_img: True
 
 
 wandb:

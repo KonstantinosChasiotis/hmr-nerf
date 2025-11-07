@@ -1,9 +1,11 @@
-import os, sys
+import sys, os
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from datetime import datetime
 import logging 
 import numpy as np
 from tqdm import tqdm
 import torch
+import torch.serialization
 from PIL import Image
 
 from torch.utils.data import DataLoader
@@ -31,7 +33,10 @@ def main(config):
     pe = PositionalEncoding (config.num_freq, config.max_freq)
 
 
-    network = torch.load(os.path.join(config.pretrained_root, config.model_name))
+    torch.serialization.add_safe_globals([MLP])
+
+    ckpt_path = os.path.join(config.pretrained_root, config.model_name)
+    network = torch.load(ckpt_path, weights_only=False)
 
     trainer = Trainer(config, network, pe, config.pretrained_root)
     test_save_path = os.path.join(config.pretrained_root, 'test')

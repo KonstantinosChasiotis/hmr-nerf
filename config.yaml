@@ -1,0 +1,52 @@
+global:
+  save_root: './checkpoints'
+  exp_name: 'mp-2025'
+
+
+dataset:
+  data_root: 'data/public'
+  num_rays_per_img: 512
+  
+
+optimizer:
+  lr: 0.001
+  beta1: 0.5
+  beta2: 0.999
+
+
+train:
+  epochs: 5000
+  batch_size: 2
+  workers: 4
+  save_every: 500
+  log_every: 100
+
+
+sampling:
+  num_pts_per_ray: 128
+  near: 1.0
+  far: 3.0
+
+
+network:
+  out_dim: 4
+  num_layers: 4
+  hidden_dim: 128
+  activation: 'relu'
+  skip: 2 
+  num_freq: 5
+  max_freq: 5
+
+
+validation:
+  valid_every: 500
+  mip: 2
+  sigma_thres: 50.0
+  chunk_size: 10240
+  num_pts_per_ray_render: 128
+  save_img: False
+
+
+wandb:
+  wandb: False
+  wandb_name: 'mp_test'
